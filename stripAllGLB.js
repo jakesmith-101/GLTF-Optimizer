@@ -6,7 +6,7 @@ import { exec as execCb } from 'node:child_process';
 const exec = promisify(execCb);
 
 import { NodeIO } from '@gltf-transform/core';
-import { KHRLightsPunctual } from '@gltf-transform/extensions';
+import { KHRLightsPunctual, KHRTextureTransform } from '@gltf-transform/extensions';
 import { prune } from '@gltf-transform/functions';
 
 const LIGHTS_EXT = 'KHR_lights_punctual';
@@ -19,7 +19,7 @@ if (!inRoot || !outRoot) {
   process.exit(1);
 }
 
-const io = new NodeIO().registerExtensions([KHRLightsPunctual]);
+const io = new NodeIO().registerExtensions([KHRLightsPunctual, KHRTextureTransform]);
 
 function isGLTFFile(p) {
   const ext = path.extname(p).toLowerCase();
@@ -91,7 +91,7 @@ async function cleanOne(inputPath, outputPath) {
   try {
     await exec(`gltfpack -i "${outputPath}" -o "${path.join(outRoot, filePath)}" -tc -cc`);
   } catch (err) {
-    console.error(`error: ${error.message}`);
+    console.error(`error: ${err.message}`);
     return;
   }
 
