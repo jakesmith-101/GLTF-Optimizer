@@ -1,6 +1,9 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { exec } from 'node:child_process';
+
+import { promisify } from 'node:util';
+import { exec as execCb } from 'node:child_process';
+const exec = promisify(execCb);
 
 import { NodeIO } from '@gltf-transform/core';
 import { KHRLightsPunctual } from '@gltf-transform/extensions';
@@ -12,7 +15,7 @@ const [,, inRoot, outRoot] = process.argv;
 const tempRoot = path.join(process.cwd(), 'temp');
 
 if (!inRoot || !outRoot) {
-  console.error('Usage: node clean-dir.mjs <inputDir> <outputDir>');
+  console.error('Usage: node stripAllGLB.js <inputDir> <outputDir>');
   process.exit(1);
 }
 
@@ -82,18 +85,15 @@ async function cleanOne(inputPath, outputPath) {
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
   await io.write(outputPath, doc);
   const [, filePath] = outputPath.split(tempRoot);
+  await fs.mkdir(path.dirname(path.join(outRoot, filePath)), { recursive: true });
 
   // gltfpack applies meshopt and compresses file to the specified output
-  exec(`gltfpack -i "${outputPath}" -o "${path.join(outRoot, filePath)}" -tc -cc`, (error, _, stderr) => {
-    if (error) {
-      console.error(`error: ${error.message}`);
-      return;
-    }
-    if (stderr) {
-      console.error(`stderr: ${stderr}`);
-      return;
-    }
-  });
+  try {
+    await exec(`gltfpack -i "${outputPath}" -o "${path.join(outRoot, filePath)}" -tc -cz`);
+  } catch (err) {
+    console.error(`error: ${error.message}`);
+    return;
+  }
 
   return outputPath;
 }
@@ -105,28 +105,35 @@ async function main() {
   let total = 0, ok = 0, failed = 0;
   const outputPaths = [];
 
+  const files = [];
   for await (const file of walk(inAbs)) {
-    if (!isGLTFFile(file)) continue;
-
-    total++;
-    const rel = path.relative(inAbs, file);
-    const outFile = path.join(outAbs, rel);
-
-    try {
-      const outputPath = await cleanOne(file, outFile);
-      outputPaths.push(outputPath);
-      ok++;
-      console.log(`✔ ${rel}`);
-    } catch (err) {
-      failed++;
-      console.error(`✖ ${rel}\n  ${err?.stack || err}`);
-    }
+    files.push(file);
   }
+
+  await Promise.all(
+    files.map(async file => {
+      if (!isGLTFFile(file)) return;
+
+      total++;
+      const rel = path.relative(inAbs, file);
+      const outFile = path.join(outAbs, rel);
+
+      try {
+        const outputPath = await cleanOne(file, outFile);
+        outputPaths.push(outputPath);
+        ok++;
+        console.log(`✔ ${rel}`);
+      } catch (err) {
+        failed++;
+        console.error(`✖ ${rel}\n  ${err?.stack || err}`);
+      }
+    })
+  );
 
   // delete temp files
-  for (const file of fs.readdirSync(tempRoot)) {
-    fs.rmSync(path.join(tempRoot, file), { recursive: true, force: true });
-  }
+  await Promise.all(
+    (await fs.readdir(tempRoot)).map(file => fs.rm(path.join(tempRoot, file), { recursive: true, force: true }))
+  );
 
   console.log(`\nDone. total=${total} ok=${ok} failed=${failed}`);
   if (failed) process.exitCode = 1;
