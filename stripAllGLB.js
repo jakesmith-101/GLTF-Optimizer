@@ -89,7 +89,7 @@ async function cleanOne(inputPath, outputPath) {
 
   // gltfpack applies meshopt and compresses file to the specified output
   try {
-    await exec(`gltfpack -i "${outputPath}" -o "${path.join(outRoot, filePath)}" -tc -cz`);
+    await exec(`gltfpack -i "${outputPath}" -o "${path.join(outRoot, filePath)}" -tc -cc`);
   } catch (err) {
     console.error(`error: ${error.message}`);
     return;
