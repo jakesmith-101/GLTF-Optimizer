@@ -1,8 +1,8 @@
 # GLTF-Optimzer
-Finds all GLB/GLTF files within input directory,
-Removes all cameras and lights, then strips out dead nodes.
-After which runs meshoptimizer to compress them.
-Then saves to the output directory.
+Finds all GLB/GLTF files within input directory. <br />
+Removes all cameras and lights, then strips out dead nodes. <br />
+After which runs meshoptimizer to compress them. <br />
+Then saves to the output directory. <br />
 <br />
 
 Requires:
